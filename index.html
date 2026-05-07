@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>영상 장치의 색 관찰 가상실험</title>
+    <style>
+        /* === 화면 잘림 방지를 위한 절대적 스케일링 설정 === */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { 
+            width: 100%; 
+            height: 100%; 
+            overflow: hidden; 
+            background-color: #1a1a1a; 
+            font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            touch-action: none; 
+        }
+
+        #app-container {
+            width: 1280px; 
+            height: 720px; 
+            background-color: #f0f4f8; 
+            display: flex; 
+            flex-direction: column;
+            transform-origin: center center;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            position: relative;
+        }
+
+        header { 
+            background: #2c3e50; 
+            color: white; 
+            text-align: center; 
+            padding: 15px 0; 
+            font-size: 28px; 
+            font-weight: bold; 
+            flex-shrink: 0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+
+        .main-container { 
+            display: flex; 
+            flex: 1; 
+            padding: 20px; 
+            gap: 25px; 
+            height: calc(720px - 60px); 
+        }
+
+        .panel { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            background: white; 
+            border-radius: 15px; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
+            padding: 20px;
+            height: 100%;
+        }
+
+        .panel-title { 
+            font-size: 24px; 
+            font-weight: bold; 
+            color: #34495e; 
+            margin-bottom: 15px; 
+            text-align: center; 
+            background: #ecf0f1;
+            padding: 10px;
+            border-radius: 8px;
+            flex-shrink: 0;
+        }
+
+        .device-wrapper {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: calc(100% - 60px); 
+        }
+
+        .smart-device {
+            width: 90%;
+            height: 90%;
+            background: #111;
+            border: 20px solid #333; 
+            border-radius: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr 1fr; 
+            gap: 10px;
+            padding: 10px;
+        }
+
+        .color-btn {
+            cursor: pointer;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+            font-weight: bold;
+            color: rgba(0,0,0,0.6);
+            text-shadow: 1px 1px 2px rgba(255,255,255,0.5);
+            transition: transform 0.1s, opacity 0.2s;
+            position: relative;
+        }
+        
+        /* 확인 완료된 색상에 체크 표시 띄우기 */
+        .color-btn.done::after {
+            content: '✔️';
+            position: absolute;
+            top: 5px;
+            right: 10px;
+            font-size: 20px;
+            color: white;
+            text-shadow: 0 0 5px black;
+        }
+
+        .color-btn:active { transform: scale(0.95); }
+        .color-btn.selected { border: 4px solid #fff; box-shadow: 0 0 15px rgba(255,255,255,0.8); z-index: 2; }
+        
+        .bg-red { background: #ff4757; }
+        .bg-green { background: #2ed573; }
+        .bg-blue { background: #1e90ff; color: rgba(255,255,255,0.8); text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
+        .bg-yellow { background: #feca57; } 
+        .bg-white { background: #ffffff; grid-column: 1 / 3; } 
+
+        .magnifier-area {
+            flex: 1.2;
+            background: #000;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            margin-bottom: 20px;
+            border: 3px solid #bdc3c7;
+        }
+
+        .status-text {
+            position: absolute;
+            top: 15px;
+            left: 20px;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .pixel-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            width: 80%;
+            height: 70%;
+        }
+
+        .pixel {
+            display: flex;
+            gap: 4px;
+            background: #111;
+            padding: 4px;
+            border-radius: 4px;
+        }
+
+        .subpixel {
+            flex: 1;
+            background: #222;
+            border-radius: 3px;
+            transition: background-color 0.3s, box-shadow 0.3s;
+        }
+
+        .result-area {
+            flex: 0.8;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow-y: auto; 
+        }
+
+        .question-box {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            flex: 1;
+            position: relative;
+        }
+
+        /* Q2 잠금 화면 오버레이 */
+        .lock-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(236, 240, 241, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            z-index: 5;
+            text-align: center;
+        }
+        .lock-overlay span { font-size: 40px; margin-bottom: 10px; }
+        .lock-overlay p { font-size: 18px; font-weight: bold; color: #7f8c8d; line-height: 1.4;}
+        
+        /* 잠금 해제 클래스 */
+        .unlocked .lock-overlay { display: none; }
+
+        .progress-text {
+            font-size: 16px;
+            font-weight: bold;
+            color: #d35400;
+            margin-bottom: 5px;
+        }
+
+        .q-text { font-size: 20px; font-weight: bold; color: #2c3e50; margin-bottom: 10px; }
+        .reveal-btn { 
+            background: #3498db; 
+            color: white; 
+            border: none; 
+            padding: 10px; 
+            font-size: 18px; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        .reveal-btn:hover { background: #2980b9; }
+        .reveal-btn:disabled { background: #95a5a6; cursor: not-allowed; }
+        
+        .answer-text {
+            display: none;
+            margin-top: 10px;
+            font-size: 20px;
+            color: #e74c3c;
+            font-weight: bold;
+            line-height: 1.4;
+        }
+
+        @media (orientation: portrait) {
+            #app-container {
+                width: 720px;  
+                height: 1280px;
+            }
+            .main-container { flex-direction: column; }
+            .panel { height: auto; flex: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app-container">
+        <header>디지털 확대경 관찰 가상실험</header>
+
+        <div class="main-container">
+            
+            <div class="panel">
+                <div class="panel-title">1. 스마트 기기 화면 (관찰할 색 터치)</div>
+                <div class="device-wrapper">
+                    <div class="smart-device">
+                        <div class="color-btn bg-red" id="btn-red" onclick="observeColor('red', this)">빨간색</div>
+                        <div class="color-btn bg-green" id="btn-green" onclick="observeColor('green', this)">초록색</div>
+                        <div class="color-btn bg-blue" id="btn-blue" onclick="observeColor('blue', this)">파란색</div>
+                        <div class="color-btn bg-yellow" id="btn-yellow" onclick="observeColor('yellow', this)">노란색</div>
+                        <div class="color-btn bg-white" id="btn-white" onclick="observeColor('white', this)">흰색</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">2. 컴퓨터 프로그램 (디지털 확대경 화면)</div>
+                
+                <div class="magnifier-area">
+                    <div class="status-text" id="status-display">관찰할 색을 선택하세요.</div>
+                    <div class="pixel-grid" id="pixel-container"></div>
+                </div>
+
+                <div class="result-area">
+                    <!-- Q1 영역 -->
+                    <div class="question-box">
+                        <div class="progress-text" id="progress-info">▶ 5가지 색상을 모두 관찰하세요 (0/5 완료)</div>
+                        <div class="q-text">Q1. 현재 선택한 부분에서 관찰되는 색을 써보자.</div>
+                        <button class="reveal-btn" id="btn-q1" onclick="toggleAnswer1()">현재 색상 결과 확인하기</button>
+                        <div class="answer-text" id="ans1"></div>
+                    </div>
+
+                    <!-- Q2 영역 (초기엔 잠겨있음) -->
+                    <div class="question-box" id="q2-box">
+                        <div class="lock-overlay">
+                            <span>🔒</span>
+                            <p>5가지 색상의 Q1 결과를<br>모두 확인하면 열립니다!</p>
+                        </div>
+                        <div class="q-text">Q2. 영상 장치의 화면을 확대하였을 때 볼 수 있는 색을 모두 써보자.</div>
+                        <button class="reveal-btn" onclick="toggleAnswer2()">최종 정답 확인하기</button>
+                        <div class="answer-text" id="ans2">
+                            빨간색, 초록색, 파란색<br>
+                            <span style="font-size: 16px; color: #555; font-weight: normal;">(이 세 가지 빛을 섞어 화면의 모든 색을 만듭니다!)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // === 🚀 자동 화면 맞춤 (Auto-Scaling) 스크립트 ===
+        function scaleApp() {
+            const app = document.getElementById('app-container');
+            const winWidth = window.innerWidth;
+            const winHeight = window.innerHeight;
+            
+            const isPortrait = winHeight > winWidth;
+            const appWidth = isPortrait ? 720 : 1280;
+            const appHeight = isPortrait ? 1280 : 720;
+            
+            let scale = Math.min(winWidth / appWidth, winHeight / appHeight);
+            app.style.transform = `scale(${scale})`;
+        }
+        
+        window.addEventListener('resize', scaleApp);
+        window.addEventListener('orientationchange', scaleApp);
+        scaleApp(); 
+
+        // === 실험 진행 상태 관리 ===
+        let currentColorId = null;
+        let isQ2Unlocked = false;
+        
+        // 색상 확인 완료 여부 추적
+        const progressStatus = {
+            'red': false,
+            'green': false,
+            'blue': false,
+            'yellow': false,
+            'white': false
+        };
+
+        const colorLogic = {
+            'red':    { r: true,  g: false, b: false, name: '빨간색' },
+            'green':  { r: false, g: true,  b: false, name: '초록색' },
+            'blue':   { r: false, g: false, b: true,  name: '파란색' },
+            'yellow': { r: true,  g: true,  b: false, name: '노란색' },
+            'white':  { r: true,  g: true,  b: true,  name: '흰색' }
+        };
+
+        // 픽셀 그리드 생성
+        const pixelContainer = document.getElementById('pixel-container');
+        for (let i = 0; i < 9; i++) {
+            const pixel = document.createElement('div');
+            pixel.className = 'pixel';
+            pixel.innerHTML = `
+                <div class="subpixel sub-r"></div>
+                <div class="subpixel sub-g"></div>
+                <div class="subpixel sub-b"></div>
+            `;
+            pixelContainer.appendChild(pixel);
+        }
+
+        // 색상 클릭 시
+        function observeColor(colorId, element) {
+            currentColorId = colorId; 
+
+            // 다른 색상 누르면 Q1 정답 가리기
+            document.getElementById('ans1').style.display = 'none';
+
+            document.querySelectorAll('.color-btn').forEach(btn => btn.classList.remove('selected'));
+            element.classList.add('selected');
+
+            const logic = colorLogic[colorId];
+            document.getElementById('status-display').innerText = `현재 [${logic.name}] 부분을 관찰 중입니다.`;
+
+            const pixels = document.querySelectorAll('.pixel');
+            pixels.forEach(p => {
+                const r = p.querySelector('.sub-r');
+                const g = p.querySelector('.sub-g');
+                const b = p.querySelector('.sub-b');
+
+                r.style.backgroundColor = logic.r ? '#ff0000' : '#222';
+                r.style.boxShadow = logic.r ? '0 0 10px #ff0000' : 'none';
+
+                g.style.backgroundColor = logic.g ? '#00ff00' : '#222';
+                g.style.boxShadow = logic.g ? '0 0 10px #00ff00' : 'none';
+
+                b.style.backgroundColor = logic.b ? '#2e86de' : '#222'; 
+                b.style.boxShadow = logic.b ? '0 0 10px #2e86de' : 'none';
+            });
+        }
+
+        // Q1 확인 버튼 (개별 색상 결과 확인)
+        function toggleAnswer1() {
+            if (!currentColorId) {
+                alert("먼저 왼쪽 화면에서 관찰할 색을 선택하세요!");
+                return;
+            }
+
+            const answerEl = document.getElementById('ans1');
+            const answers = {
+                'red': '• 빨간색 부분: 빨간색',
+                'green': '• 초록색 부분: 초록색',
+                'blue': '• 파란색 부분: 파란색',
+                'yellow': '• 노란색 부분: 빨간색, 초록색',
+                'white': '• 흰색 부분: 빨간색, 초록색, 파란색'
+            };
+
+            answerEl.innerHTML = answers[currentColorId];
+            answerEl.style.display = 'block';
+
+            // 진행 상태 업데이트
+            if (!progressStatus[currentColorId]) {
+                progressStatus[currentColorId] = true;
+                document.getElementById('btn-' + currentColorId).classList.add('done');
+                checkOverallProgress();
+            }
+        }
+
+        // 전체 진행률 체크 및 Q2 해금
+        function checkOverallProgress() {
+            let completedCount = Object.values(progressStatus).filter(v => v).length;
+            document.getElementById('progress-info').innerText = `▶ 5가지 색상을 모두 관찰하세요 (${completedCount}/5 완료)`;
+
+            if (completedCount === 5 && !isQ2Unlocked) {
+                isQ2Unlocked = true;
+                // Q2 잠금 해제
+                document.getElementById('q2-box').classList.add('unlocked');
+                document.getElementById('progress-info').innerText = `✅ 모든 색상 관찰 완료! 아래 Q2를 풀어보세요.`;
+                document.getElementById('progress-info').style.color = '#27ae60';
+            }
+        }
+
+        // Q2 확인 버튼 (꽃가루 엔딩)
+        function toggleAnswer2() {
+            const answerEl = document.getElementById('ans2');
+            if (answerEl.style.display !== 'block') {
+                answerEl.style.display = 'block';
+                shootConfetti(); // 🎊 정답 열릴 때 꽃가루 뿌리기!
+            }
+        }
+
+        // === 🎊 꽃가루(Confetti) 이펙트 스크립트 ===
+        function shootConfetti() {
+            const confettiContainer = document.createElement('div');
+            confettiContainer.style.position = 'fixed';
+            confettiContainer.style.top = '0';
+            confettiContainer.style.left = '0';
+            confettiContainer.style.width = '100vw';
+            confettiContainer.style.height = '100vh';
+            confettiContainer.style.pointerEvents = 'none';
+            confettiContainer.style.zIndex = '9999';
+            confettiContainer.style.overflow = 'hidden';
+            document.body.appendChild(confettiContainer);
+
+            const colors = ['#ff4757', '#2ed573', '#1e90ff', '#feca57', '#ffffff', '#e056fd'];
+            
+            // 150개의 꽃가루 조각 생성
+            for(let i = 0; i < 150; i++) {
+                let conf = document.createElement('div');
+                conf.style.position = 'absolute';
+                conf.style.width = (Math.random() * 12 + 6) + 'px';
+                conf.style.height = (Math.random() * 12 + 6) + 'px';
+                conf.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                conf.style.left = (Math.random() * 100) + 'vw';
+                conf.style.top = '-20px';
+                conf.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+                conf.style.opacity = Math.random() + 0.5;
+                
+                let speed = Math.random() * 4 + 3;
+                let angle = Math.random() * 360;
+                let spinSpeed = Math.random() * 10 - 5;
+                let sway = Math.random() * 2 - 1;
+                
+                confettiContainer.appendChild(conf);
+
+                // 떨어지는 애니메이션 프레임 반복
+                function fall() {
+                    let currentTop = parseFloat(conf.style.top);
+                    let currentLeft = parseFloat(conf.style.left);
+                    angle += spinSpeed;
+                    
+                    conf.style.top = (currentTop + speed) + 'px';
+                    conf.style.left = (currentLeft + Math.sin(currentTop * 0.03) * sway) + 'vw';
+                    conf.style.transform = `rotate(${angle}deg)`;
+
+                    if(currentTop < window.innerHeight) {
+                        requestAnimationFrame(fall);
+                    } else {
+                        conf.remove();
+                    }
+                }
+                
+                // 시간차를 두고 떨어지게 만듦
+                setTimeout(() => {
+                    requestAnimationFrame(fall);
+                }, Math.random() * 1500);
+            }
+            
+            // 5초 뒤에 컨테이너 완전히 삭제
+            setTimeout(() => {
+                confettiContainer.remove();
+            }, 6000);
+        }
+    </script>
+</body>
+</html>
